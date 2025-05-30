@@ -1,10 +1,41 @@
-import { TypeORMError } from 'typeorm'
+import { EntityManager, TypeORMError } from 'typeorm'
 import { AppDataSource } from '../database/data-source'
 import { User } from '../entity/User'
-import { createPasswordHash } from '../utils/bcrypt'
+import { comparePassword, createPasswordHash } from '../utils/bcrypt'
 import { Conversation } from '../entity/Conversations'
 import handleTypeOrmError from '../utils/handleTypeOrmError'
+import { UpdateUserDTO } from '../Types/DataTransferObjects/UsersDTO'
 class UserService {
+  async existUser(email: string, manager = AppDataSource.manager) {
+    try {
+      const user = await manager.findOne(User, {
+        where: {
+          email: email,
+        },
+      })
+      if (!user) {
+        return false
+      }
+      return true
+    } catch (error) {
+      handleTypeOrmError(error, 'Error Checking User Availability')
+    }
+  }
+  async findByEmail(
+    email: string,
+    manager: EntityManager = AppDataSource.manager
+  ) {
+    // Find One User by Email
+    try {
+      const user = await manager.findOne(User, {
+        where: { email: email },
+        relations: ['conversations'],
+      })
+      return user
+    } catch (error) {
+      handleTypeOrmError(error, 'Error finding User by Email')
+    }
+  }
   async find(index: string, manager = AppDataSource.manager) {
     // Find One User
     try {
@@ -77,6 +108,44 @@ class UserService {
       return threads
     } catch (error) {
       handleTypeOrmError(error, 'Error finding Threads')
+    }
+  }
+
+  async updateUserDetails(
+    userId: string,
+    userDetails: UpdateUserDTO,
+    manager: EntityManager = AppDataSource.manager
+  ) {
+    try {
+      const user = await this.find(userId, manager)
+      userDetails.avatarUrl && (user.avatarUrl = userDetails.avatarUrl)
+      userDetails.displayName && (user.displayName = userDetails.displayName)
+      userDetails.email && (user.email = userDetails.email)
+      userDetails.username && (user.username = userDetails.username)
+      return manager.save(user)
+    } catch (error) {
+      handleTypeOrmError(error, 'Error Updating User Details')
+    }
+  }
+
+  async updateUserPassword(
+    userId: string,
+    oldPassword: string,
+    newPassword: string,
+    manager: EntityManager = AppDataSource.manager
+  ) {
+    try {
+      const user = await this.find(userId, manager)
+      const isPasswordValid = comparePassword(oldPassword, user.passwordHash)
+      if (!isPasswordValid) {
+        throw new Error('Invalid Password')
+      }
+      const newPasswordHash = await createPasswordHash(newPassword)
+      user.passwordHash = newPasswordHash
+      const savedUser = await manager.save(user)
+      return savedUser
+    } catch (error) {
+      handleTypeOrmError(error, 'Error Updating User Password')
     }
   }
 }

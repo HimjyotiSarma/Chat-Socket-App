@@ -9,7 +9,6 @@ export interface CreateUserResponseDTO {
   id: string
   username: string
   email: string
-  passwordHash: string
   displayName?: string
   avatarUrl: string
   lastSeenAt: Date | null
@@ -18,7 +17,6 @@ export interface CreateUserResponseDTO {
 export interface UpdateUserDTO {
   username?: string
   email?: string
-  password?: string
   displayName?: string
   avatarUrl?: string
 }

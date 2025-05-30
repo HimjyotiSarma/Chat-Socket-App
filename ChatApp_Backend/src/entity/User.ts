@@ -45,10 +45,10 @@ export class User {
   lastSeenAt?: Date
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
-  createdAt?: Date
+  createdAt!: Date
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
-  updatedAt?: Date
+  updatedAt!: Date
 
   @OneToMany(() => Conversation, (conversation) => conversation.createdBy, {
     nullable: true,

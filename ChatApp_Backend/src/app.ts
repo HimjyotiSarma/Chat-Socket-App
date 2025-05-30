@@ -2,8 +2,13 @@ import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
+import cookieParser from 'cookie-parser'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
+import { TypedIOServer } from './Types/SocketTypes'
+import { attachUserData } from './middlewares/socket/auth.socket.middleware'
+
+console.log('COOKIE SECRET: ', process.env.COOKIE_SECRET)
 
 const app = express()
 const httpServer = createServer(app)
@@ -26,7 +31,18 @@ app.use(helmet())
 app.use(morgan('tiny'))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+app.use(cookieParser(process.env.COOKIE_SECRET))
 app.use(express.static('public'))
+
+app.use((req, res, next) => {
+  console.log('Incoming Request Body:', req.body)
+  next()
+})
+app.use((req, res, next) => {
+  console.log('Incoming Cookies:', req.cookies)
+  console.log('Incoming Signed Cookies:', req.signedCookies)
+  next()
+})
 
 // Add Middlewares
 
@@ -38,15 +54,12 @@ io.on('connection', (socket) => {
     console.log('user disconnected')
   })
 })
-
-app.get('/', (req, res) => {
-  res.send('Hello World')
-})
+// Add Routes
+import authRouter from './routes/auth.route'
+app.use('/api/v1/auth', authRouter)
 
 // Handle Errors in Routes
 import errorHandler from './utils/errorHandler'
-import { TypedIOServer } from './Types/SocketTypes'
-import { attachUserData } from './middlewares/socket/auth.socket.middleware'
 app.use(errorHandler)
 
 export { app as default, httpServer as server }
