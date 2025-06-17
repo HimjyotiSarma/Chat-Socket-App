@@ -3,6 +3,8 @@ import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
 import cookieParser from 'cookie-parser'
+import { createClient } from 'redis'
+import { createAdapter } from '@socket.io/redis-adapter'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import { TypedIOServer } from './Types/SocketTypes'
@@ -18,6 +20,16 @@ const io: TypedIOServer = new Server(httpServer, {
     credentials: true,
   },
 })
+
+// Connect to Redis and set up Socket.IO adapter
+;(async () => {
+  const pubClient = createClient({
+    url: process.env.REDIS_URL || 'redis://localhost:6379',
+  })
+  const subClient = pubClient.duplicate()
+  await Promise.all([pubClient.connect(), subClient.connect()])
+  io.adapter(createAdapter(pubClient, subClient))
+})()
 
 io.use(attachUserData)
 
@@ -49,6 +61,7 @@ app.use((req, res, next) => {
 // Add Socket Connection
 
 io.on('connection', (socket) => {
+  // Add web session connection with db sync here
   console.log('a user connected')
   socket.on('disconnect', () => {
     console.log('user disconnected')

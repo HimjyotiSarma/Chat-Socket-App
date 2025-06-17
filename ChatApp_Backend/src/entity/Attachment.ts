@@ -44,5 +44,5 @@ export class Attachment {
   user!: User
 
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
-  createdAt?: Date
+  createdAt!: Date
 }

@@ -81,6 +81,7 @@ export class User {
   @OneToMany(() => ThreadOffset, (threadOffset) => threadOffset.user, {
     nullable: true,
   })
+  threadOffsets?: ThreadOffset[]
   @OneToMany(() => Attachment, (attachment) => attachment.user)
   attachments?: Attachment[]
 }

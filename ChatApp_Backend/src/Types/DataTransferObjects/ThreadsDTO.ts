@@ -2,19 +2,9 @@ import { Thread_Roles, Thread_Types } from '../Enums'
 import { MessageInfoDTO } from './MessageDTO'
 import { UserInfoDTO } from './UsersDTO'
 
-export interface CreateThreadDTO {
+export interface CreateGrpThreadDTO {
   name: string
-  type: Thread_Types
   avatarUrl?: string
-}
-
-export interface CreateThreadResponseDTO {
-  id: string
-  name?: string
-  type: Thread_Types
-  avatarUrl?: string
-  created_by: UserInfoDTO
-  participants: ThreadParticipantDetailDTO[]
 }
 
 export interface UpdateThreadMetadataDTO {
@@ -29,12 +19,12 @@ export interface ThreadInfoDTO {
   type: Thread_Types
   avatarUrl?: string
   created_by: UserInfoDTO
-  participants?: ThreadParticipantDetailDTO[]
 }
 
 export interface ThreadParticipantGeneralInfoDTO {
   thread_id: string
   user_id: string
+  username: string
   role: Thread_Roles
 }
 

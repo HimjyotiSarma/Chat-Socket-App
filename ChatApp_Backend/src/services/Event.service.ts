@@ -3,6 +3,7 @@ import { AppDataSource } from '../database/data-source'
 import { Domain_Events, Event_Aggregate_Type } from '../Types/Enums'
 import { DomainEvent } from '../entity/DomainEvent'
 import handleTypeOrmError from '../utils/handleTypeOrmError'
+import { Message } from '../entity/Message'
 
 class EventService {
   async find(eventId: bigint, manager = AppDataSource.manager) {
@@ -31,11 +32,36 @@ class EventService {
       event.aggregateId = aggregate_id
       event.eventType = event_type
       event.payload = payload
-      await manager.save(DomainEvent)
+      return await manager.save(event)
     } catch (error) {
       handleTypeOrmError(error, 'Error creating new Event')
     }
   }
+
+  // async createMessageEvent(
+  //   message_id: string,
+  //   event_type: Domain_Events,
+  //   payload: Message,
+  //   manager: EntityManager = AppDataSource.manager
+  // ) {
+  //   try {
+  //     const event = new DomainEvent()
+  //     event.aggregateType = Event_Aggregate_Type.MESSAGE
+  //     event.aggregateId = message_id
+  //     if (
+  //       event_type !== Domain_Events.MESSAGE_CREATED &&
+  //       event_type !== Domain_Events.MESSAGE_DELETED &&
+  //       event_type !== Domain_Events.MESSAGE_UPDATED &&
+  //       event_type !== Domain_Events.BULK_MESSAGE_DELETED &&
+  //       event_type !== Domain_Events.MESSAGE_ACKNOWLEDGED
+  //     ) throw new Error('Invalid event type for message event')
+  //     event.eventType = event_type
+  //     event.payload = payload
+  //     return await manager.save(event)
+  //   } catch (error) {
+  //     handleTypeOrmError(error, 'Error creating new Message Event')
+  //   }
+  // }
   async publishEvent(eventId: bigint, manager = AppDataSource.manager) {
     try {
       const event = await this.find(eventId, manager)
@@ -82,6 +108,19 @@ class EventService {
       return unpublishedEvents
     } catch (error) {
       handleTypeOrmError(error, 'Error finding unpublished Events')
+    }
+  }
+
+  async getEventOfMessage(messageId: string, manager = AppDataSource.manager) {
+    try {
+      const event = await manager.findOne(DomainEvent, {
+        where: {
+          aggregateId: messageId,
+        },
+      })
+      return event
+    } catch (error) {
+      handleTypeOrmError(error, 'Error finding event of message')
     }
   }
 }

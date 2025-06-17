@@ -89,18 +89,25 @@ class MessageService {
     threadId: string,
     senderId: string,
     content: Record<string, any>,
+    reply_to_message_id: string | undefined = undefined,
     manager: EntityManager = AppDataSource.manager
   ) {
     return await manager
       .transaction(async (transactionalManager) => {
         const thread = await ThreadService.find(threadId, transactionalManager)
         const sender = await UserService.find(senderId, transactionalManager)
+        const replyToMessage = reply_to_message_id
+          ? await this.find(reply_to_message_id, transactionalManager)
+          : null
 
         // Create New Message
         const message = new Message()
         message.conversation = thread
         message.sender = sender
         message.content = content
+        if (replyToMessage) {
+          message.repliedToMessage = replyToMessage
+        }
         const savedMessage = await transactionalManager.save(message)
 
         //   Update the senders Thread Offset
@@ -389,6 +396,26 @@ class MessageService {
     }
   }
 
+  async getReactionsOfMessages(
+    messageIds: string[],
+    manager = AppDataSource.manager
+  ) {
+    try {
+      const reactions = await Promise.all(
+        messageIds.map(async (messageId: string) => {
+          const messageReactions = await this.getReactions(messageId, manager)
+          return {
+            messageId,
+            reactions: messageReactions,
+          }
+        })
+      )
+      return reactions
+    } catch (error) {
+      handleTypeOrmError(error, 'Error finding Message Reactions')
+    }
+  }
+
   async addAttachments(
     thread_id: string,
     user_id: string,
@@ -404,6 +431,7 @@ class MessageService {
           thread.id,
           user.id,
           messageContent,
+          undefined,
           transactionalManager
         )
         const attachmentsToAdd = attachmentsInput.map((attachmentDetails) => {

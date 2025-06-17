@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -10,6 +11,7 @@ import { DomainEvent } from './DomainEvent'
 import { User } from './User'
 
 @Entity({ name: 'delivery_status' })
+@Index('unq_user_event', ['user', 'domainEvent'], { unique: true })
 export class DeliveryStatus {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id!: bigint

@@ -77,14 +77,27 @@ class UserService {
     }
   }
 
-  async findThreads(userId: string, limit: number = 20, offset: number = 0) {
+  async findThreadOffsets(userId: string) {
+    try {
+      const user = await AppDataSource.getRepository(User).findOne({
+        where: { id: userId },
+        relations: [
+          'threadOffsets',
+          'threadOffsets.thread',
+          'threadOffsets.user',
+        ],
+      })
+      const threadOffsets = user?.threadOffsets
+      return threadOffsets
+    } catch (error) {
+      handleTypeOrmError(error, 'Error finding Thread Offsets')
+    }
+  }
+  async findThreads(userId: string) {
     try {
       const user = await AppDataSource.getRepository(User).findOne({
         where: { id: userId },
         relations: ['threads', 'threads.thread'],
-        order: {
-          updatedAt: 'DESC',
-        },
       })
 
       const threads = await AppDataSource.createQueryBuilder(
@@ -101,8 +114,6 @@ class UserService {
         .leftJoinAndSelect('tp.user', 'participantUser')
         .leftJoinAndSelect('thread.createdBy', 'creator')
         .orderBy('thread.updated_at', 'DESC')
-        .limit(limit)
-        .offset(offset)
         .getMany()
 
       return threads

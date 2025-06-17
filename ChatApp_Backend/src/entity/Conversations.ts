@@ -35,7 +35,11 @@ export class Conversation {
   @JoinColumn({ name: 'created_by' })
   createdBy!: User
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  @CreateDateColumn({
+    name: 'created_at',
+    type: 'timestamptz',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
   createdAt?: Date
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })

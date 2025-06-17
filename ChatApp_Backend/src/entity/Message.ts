@@ -43,7 +43,7 @@ export class Message {
   repliedFromMessages?: Message[]
 
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
-  createdAt?: Date
+  createdAt!: Date
 
   @Column({ type: 'timestamptz', nullable: true, name: 'edited_at' })
   editedAt?: Date

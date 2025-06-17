@@ -7,9 +7,9 @@ export interface MessageInfoDTO {
   thread: ThreadInfoDTO
   sender: UserInfoDTO
   content: Record<string, any>
-  attachments: AttachmentResponseDTO[]
+  attachments: AttachmentResponseDTO[] | null
   repliedToMessage?: MessageInfoDTO
-  reactions?: ReactionResponseGeneralDTO[]
+  reactions?: ReactionResponseGeneralDTO[] | null
   created_at: Date
   edited_at?: Date
 }
@@ -74,7 +74,7 @@ export interface ReactionResponseGeneralDTO {
   message_id: string
   user_id: string
   emojiHex: string
-  reacted_at: Date
+  reacted_at: Date | null
 }
 
 // Add Delete Message Reaction DTO if needed

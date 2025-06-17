@@ -8,6 +8,7 @@ import { EntityManager, TypeORMError } from 'typeorm'
 import { Message } from '../entity/Message'
 import handleTypeOrmError from '../utils/handleTypeOrmError'
 import { ThreadParticipant } from '../entity/ThreadParticipants'
+import { ThreadOffset } from '../entity/ThreadOffset'
 class ThreadService {
   async find(threadId: string, manager = AppDataSource.manager) {
     try {
@@ -22,11 +23,10 @@ class ThreadService {
     }
   }
 
-  async create(name: string, type: Thread_Types, createdBy: User) {
+  async createDMThread(createdBy: User) {
     try {
       const thread = new Conversation()
-      thread.name = name
-      thread.type = type
+      thread.type = Thread_Types.DM
       thread.createdBy = createdBy
 
       const savedThread = await AppDataSource.getRepository(Conversation).save(
@@ -36,7 +36,7 @@ class ThreadService {
       const threadParticipant = new ThreadParticipant()
       threadParticipant.thread = savedThread
       threadParticipant.user = createdBy
-      threadParticipant.role = Thread_Roles.ADMIN
+      threadParticipant.role = Thread_Roles.MEMBER
 
       await AppDataSource.getRepository(ThreadParticipant).save(
         threadParticipant
@@ -45,6 +45,34 @@ class ThreadService {
       return savedThread
     } catch (error) {
       handleTypeOrmError(error, 'Error creating thread')
+    }
+  }
+
+  async createGrpThread(
+    name: string,
+    createdBy: User,
+    avatarUrl: string = 'https://banner2.cleanpng.com/20180601/byi/avojk8dpf.webp',
+    manager = AppDataSource.manager
+  ) {
+    try {
+      const thread = new Conversation()
+      thread.name = name
+      thread.avatarUrl = avatarUrl
+      thread.type = Thread_Types.GROUP
+      thread.createdBy = createdBy
+
+      const savedThread = await manager.save(thread)
+
+      const threadParticipant = new ThreadParticipant()
+      threadParticipant.thread = savedThread
+      threadParticipant.user = createdBy
+      threadParticipant.role = Thread_Roles.ADMIN
+
+      await manager.save(threadParticipant)
+
+      return savedThread
+    } catch (error) {
+      handleTypeOrmError(error, 'Error creating Group Thread')
     }
   }
 
@@ -63,7 +91,12 @@ class ThreadService {
 
   // Find All Messages
 
-  async findMessages(threadId: string, limit: number = 50, offset: number = 0) {
+  async findMessages(
+    threadId: string,
+    limit: number = 50,
+    offset: number = 0,
+    offsetDate: Date = new Date('2000-01-01')
+  ) {
     try {
       const messages = AppDataSource.createQueryBuilder(Message, 'message')
         .innerJoin('message.thread', 'thread', 'thread.id = :threadId', {
@@ -73,6 +106,7 @@ class ThreadService {
         .leftJoinAndSelect('message.attachments', 'attachments')
         .leftJoinAndSelect('message.reactions', 'reactions')
         .leftJoinAndSelect('reactions.user', 'reactionUser')
+        .where('message.createdAt > :offsetDate', { offsetDate })
         .orderBy('message.createdAt', 'DESC')
         .limit(limit)
         .offset(offset)
@@ -84,14 +118,42 @@ class ThreadService {
     }
   }
 
-  // Add User to thread
+  // Find Last Offset Date of Thread
+  async findLastOffsetDate(
+    threadId: string,
+    userId: string,
+    manager: EntityManager = AppDataSource.manager
+  ) {
+    try {
+      const thread = await this.find(threadId, manager)
+      const threadOffset = await manager.findOne(ThreadOffset, {
+        where: { thread: { id: threadId }, user: { id: userId } },
+      })
+      if (!threadOffset) {
+        return new Date('2000-01-01')
+      }
+      return threadOffset.lastOffsetAt
+    } catch (error) {
+      handleTypeOrmError(error, 'Error finding Last Offset Date of Thread')
+    }
+  }
 
-  async addUserToThread(threadId: string, userId: string) {
+  async addUserToThread(threadId: string, participantId: string) {
     try {
       const thread = await this.find(threadId)
       if (!thread) throw new Error('Thread not found')
-      const userToAdd = await UserService.find(userId)
+      const userToAdd = await UserService.find(participantId)
       if (!userToAdd) throw new Error('User not found')
+      const isUserInThread = await this.isUserInThread(threadId, participantId)
+      if (isUserInThread) {
+        throw new Error('User already in Thread')
+      }
+      if (thread.type === Thread_Types.DM) {
+        const participants = await this.findUsers(thread.id)
+        if (participants && participants.length >= 2) {
+          throw new Error('DM Thread already has 2 participants')
+        }
+      }
       const threadParticipant = new ThreadParticipant()
       threadParticipant.thread = thread
       threadParticipant.user = userToAdd
@@ -103,6 +165,24 @@ class ThreadService {
       handleTypeOrmError(error, 'Error adding User to Thread')
     }
   }
+
+  async findAdmins(
+    threadId: string,
+    manager: EntityManager = AppDataSource.manager
+  ) {
+    try {
+      const thread = await manager.findOne(Conversation, {
+        where: { id: threadId },
+        relations: ['participants', 'participants.user'],
+      })
+      if (!thread) throw new Error('Thread not found')
+      return thread.participants?.filter((tp) => tp.role === Thread_Roles.ADMIN)
+    } catch (error) {
+      handleTypeOrmError(error, 'Error finding Admins of Thread')
+    }
+  }
+
+  // Add new Admin to a Group Thread
 
   async bulkAddUserToGrpThread(
     threadId: string,
@@ -166,6 +246,43 @@ class ThreadService {
     } catch (error) {
       handleTypeOrmError(error, 'Error removing User from Thread')
     }
+  }
+
+  async bulkRemoveUserFromThread(
+    threadId: string,
+    userIds: string[],
+    manager = AppDataSource.manager
+  ) {
+    return await manager.transaction(async (transactionalManager) => {
+      const thread = await this.find(threadId, transactionalManager)
+      const usersToRemove = await Promise.all(
+        userIds.map(async (userId) => {
+          const user = await UserService.find(userId)
+          return user
+        })
+      )
+      const threadParticipantsToRemove = await Promise.all(
+        usersToRemove.map(async (user: User) => {
+          const threadParticipant = await transactionalManager.findOne(
+            ThreadParticipant,
+            {
+              where: {
+                user: user,
+                thread: thread,
+              },
+            }
+          )
+          return threadParticipant
+        })
+      )
+      if (!threadParticipantsToRemove) {
+        throw new Error('Participants not found')
+      }
+      const filterUndefinedParticipants = threadParticipantsToRemove.filter(
+        (tp) => tp !== null
+      )
+      return transactionalManager.remove(filterUndefinedParticipants)
+    })
   }
 
   async updateThreadMetadata(

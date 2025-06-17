@@ -36,9 +36,9 @@ export interface UserInfoDTO {
   username: string
   email: string
   displayName?: string
-  avatarUrl: string
-  lastSeenAt: Date
-  createdAt: Date
+  avatarUrl: string | null
+  lastSeenAt: Date | null
+  created_at: Date
 }
 
 export interface UserLoginDTO {
