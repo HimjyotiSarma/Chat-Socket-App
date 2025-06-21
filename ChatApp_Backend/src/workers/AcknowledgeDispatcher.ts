@@ -12,11 +12,11 @@ async function start() {
   const channel = await connection.createChannel()
   const queue = 'message_ack_dispatcher'
   await channel.assertQueue(queue)
-  await channel.bindQueue(queue, 'event_bus', '*acknowledged*')
+  await channel.bindQueue(queue, 'event_hub', '*acknowledged*')
   channel.consume(queue, async (msg) => {
     try {
       if (!msg) return
-      const payload: { event: EventInfoDTO; userId: string } = JSON.parse(
+      const payload: { event: EventInfoDTO<any>; userId: string } = JSON.parse(
         msg.content.toString()
       )
       if (!payload || !payload.event) return

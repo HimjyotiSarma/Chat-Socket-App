@@ -13,6 +13,7 @@ import { User } from './User'
 import { ThreadParticipant } from './ThreadParticipants'
 import { Message } from './Message'
 import { ThreadOffset } from './ThreadOffset'
+import { DeliveryStatus } from './DeliveryStatus'
 
 @Entity()
 export class Conversation {
@@ -57,6 +58,12 @@ export class Conversation {
   })
   messages?: Message[]
 
+  @OneToMany(
+    () => DeliveryStatus,
+    (deliveryStatus) => deliveryStatus.conversation,
+    { nullable: true }
+  )
+  deliveryStatus?: DeliveryStatus[]
   @OneToMany(() => ThreadOffset, (threadOffset) => threadOffset.thread, {
     nullable: true,
   })

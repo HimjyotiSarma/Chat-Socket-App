@@ -22,14 +22,10 @@ import {
 
 const handleInitialMessageCreation = async (
   event: DomainEvent,
-  message: Message
+  message: Message,
+  emitter: Emitter<ServerToClientEvents>
 ) => {
   try {
-    const redisClient = createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379',
-    })
-    await redisClient.connect()
-    const emitter = new Emitter<ServerToClientEvents>(redisClient)
     if (!event || !message) {
       throw new Error('Event or message data is missing')
     }
@@ -45,26 +41,21 @@ const handleInitialMessageCreation = async (
     }
     const deliveries = await DeliveryService.initDelivery(
       event.id,
+      message.conversation,
       participants
     )
     if (!deliveries || deliveries.length === 0) {
       throw new Error('No deliveries created for unpublished event')
     }
     await EventService.publishEvent(event.id)
-    const eventName = EventTypeToEventName(event.eventType)
+
     await Promise.all(
       deliveries.map((d) => DeliveryService.markDelivered(d.id))
     )
     const rooms = deliveries.map((d) => `user-${d.user.id}`)
-    if (eventName == 'error') {
-      console.log(
-        'Something went wrong when parsing event name ',
-        event.eventType
-      )
-      return
-    }
+
     emitter.to(rooms).emit('message_created', {
-      event: mapEventResponse(event),
+      event: mapEventResponse<Domain_Events.MESSAGE_CREATED>(event),
       thread: mapThreadResponse(message.conversation),
       message: mapMessageResponse(message),
     })

@@ -9,6 +9,7 @@ import {
 } from 'typeorm'
 import { DomainEvent } from './DomainEvent'
 import { User } from './User'
+import { Conversation } from './Conversations'
 
 @Entity({ name: 'delivery_status' })
 @Index('unq_user_event', ['user', 'domainEvent'], { unique: true })
@@ -25,6 +26,16 @@ export class DeliveryStatus {
   @ManyToOne(() => User, (user) => user.deliveryStatus, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user!: User
+
+  @ManyToOne(
+    () => Conversation,
+    (conversation) => conversation.deliveryStatus,
+    {
+      onDelete: 'CASCADE',
+    }
+  )
+  @JoinColumn({ name: 'thread_id' })
+  conversation!: Conversation
 
   @Column({ name: 'delivery_attempts', type: 'int', default: 0 })
   deliveryAttempts!: number

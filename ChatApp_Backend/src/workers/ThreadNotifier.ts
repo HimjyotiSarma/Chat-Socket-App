@@ -28,7 +28,7 @@ async function start() {
   const channel = await connection.createChannel()
   const queue = 'thread_notifier'
   await channel.assertQueue(queue, { durable: true })
-  await channel.bindQueue(queue, 'event_bus', 'event.conversation.*')
+  await channel.bindQueue(queue, 'event_hub', 'event.conversation.*')
 
   // Define Emitter
   const redisClient = createClient({
@@ -61,9 +61,11 @@ async function start() {
         if (!threadEvent) {
           emitter.emit('error', 'Failed to create conversation event')
         }
-        const deliveries = await DeliveryService.initDelivery(threadEvent.id, [
-          creator,
-        ])
+        const deliveries = await DeliveryService.initDelivery(
+          threadEvent.id,
+          newThread,
+          [creator]
+        )
         if (!deliveries || deliveries.length === 0) {
           emitter.emit('error', 'Failed to create conversation event delivery')
           return
@@ -78,7 +80,10 @@ async function start() {
         // Send a notification to the user
 
         emitter.to(`user-${creator.id}`).emit('conversation_dm_created', {
-          event: mapEventResponse(threadEvent),
+          event:
+            mapEventResponse<Domain_Events.DM_CONVERSATION_CREATED>(
+              threadEvent
+            ),
           conversation: mapThreadResponse(newThread),
         })
         // Join Thread
@@ -99,6 +104,7 @@ async function start() {
         )
         if (!newThread) {
           emitter.emit('error', 'Failed to create group conversation')
+          return
         }
         const threadEvent = await EventService.create(
           Event_Aggregate_Type.CONVERSATION,
@@ -109,9 +115,11 @@ async function start() {
         if (!threadEvent) {
           emitter.emit('error', 'Failed to create group conversation event')
         }
-        const deliveries = await DeliveryService.initDelivery(threadEvent.id, [
-          creator,
-        ])
+        const deliveries = await DeliveryService.initDelivery(
+          threadEvent.id,
+          newThread,
+          [creator]
+        )
         if (!deliveries || deliveries.length === 0) {
           emitter.emit(
             'error',
@@ -127,7 +135,10 @@ async function start() {
         )
         // Send a notification to the user
         emitter.to(`user-${creator.id}`).emit('conversation_group_created', {
-          event: mapEventResponse(threadEvent),
+          event:
+            mapEventResponse<Domain_Events.GROUP_CONVERSATION_CREATED>(
+              threadEvent
+            ),
           conversation: mapThreadResponse(newThread),
         })
         // Join Thread
@@ -178,9 +189,11 @@ async function start() {
           emitter.emit('error', 'Failed to create participant added event')
           return
         }
-        const deliveries = await DeliveryService.initDelivery(threadEvent.id, [
-          threadParticipant.user,
-        ])
+        const deliveries = await DeliveryService.initDelivery(
+          threadEvent.id,
+          thread,
+          [threadParticipant.user]
+        )
         if (!deliveries || deliveries.length === 0) {
           emitter.emit(
             'error',
@@ -195,10 +208,11 @@ async function start() {
           )
         )
         emitter
-          .to(`user-${participantId}`)
-          .emit('added_to_conversation_notification', {
-            event: mapEventResponse(threadEvent),
-            participant: mapThreadParticipantDetail(threadParticipant),
+          .to(`user-${creator.id}`)
+          .emit('added_participant_to_conversation_notification', {
+            event:
+              mapEventResponse<Domain_Events.PARTICIPANT_ADDED>(threadEvent),
+            participant: mapThreadParticipants(threadParticipant),
           })
         emitter.to(`thread-${threadId}`).emit('participant_added', {
           participant: mapThreadParticipants(threadParticipant),
@@ -254,9 +268,11 @@ async function start() {
           )
           return
         }
-        const deliveries = await DeliveryService.initDelivery(threadEvent.id, [
-          creator,
-        ])
+        const deliveries = await DeliveryService.initDelivery(
+          threadEvent.id,
+          thread,
+          [creator]
+        )
         if (!deliveries || deliveries.length === 0) {
           emitter.emit(
             'error',
@@ -273,7 +289,10 @@ async function start() {
         emitter
           .to(`user-${creator.id}`)
           .emit('multiple_participant_added_notification', {
-            event: mapEventResponse(threadEvent),
+            event:
+              mapEventResponse<Domain_Events.MULTIPLE_PARTICIPANT_ADDED>(
+                threadEvent
+              ),
             participants: threadParticipants.map((tp) =>
               mapThreadParticipants(tp)
             ),
@@ -333,9 +352,11 @@ async function start() {
           emitter.emit('error', 'Failed to create participant removed event')
           return
         }
-        const deliveries = await DeliveryService.initDelivery(threadEvent.id, [
-          creator,
-        ])
+        const deliveries = await DeliveryService.initDelivery(
+          threadEvent.id,
+          thread,
+          [creator]
+        )
         if (!deliveries || deliveries.length === 0) {
           emitter.emit(
             'error',
@@ -351,8 +372,9 @@ async function start() {
         )
         emitter
           .to(`user-${creator.id}`)
-          .emit('removed_from_conversation_notification', {
-            event: mapEventResponse(threadEvent),
+          .emit('removed_participant_from_conversation_notification', {
+            event:
+              mapEventResponse<Domain_Events.PARTICIPANT_REMOVED>(threadEvent),
             participants: threadParticipants.map((tp) =>
               mapThreadParticipants(tp)
             ),
@@ -395,9 +417,11 @@ async function start() {
           emitter.emit('error', 'Failed to mark thread as read')
           return
         }
-        const deliveries = await DeliveryService.initDelivery(threadEvent.id, [
-          creator,
-        ])
+        const deliveries = await DeliveryService.initDelivery(
+          threadEvent.id,
+          thread,
+          [creator]
+        )
         if (!deliveries || deliveries.length === 0) {
           emitter.emit(
             'error',
@@ -413,7 +437,8 @@ async function start() {
         emitter
           .to(`user-${creator.id}`)
           .emit('marked_thread_read_notification', {
-            event: mapEventResponse(threadEvent),
+            event:
+              mapEventResponse<Domain_Events.MARK_THREAD_READ>(threadEvent),
             conversation: mapThreadResponse(thread),
           })
       } else if (msg.fields.routingKey == 'event.conversation.updated.group') {
@@ -448,9 +473,11 @@ async function start() {
           emitter.emit('error', 'Failed to update thread metadata')
           return
         }
-        const deliveries = await DeliveryService.initDelivery(threadEvent.id, [
-          creator,
-        ])
+        const deliveries = await DeliveryService.initDelivery(
+          threadEvent.id,
+          thread,
+          [creator]
+        )
         if (!deliveries || deliveries.length === 0) {
           emitter.emit(
             'error',
@@ -467,7 +494,10 @@ async function start() {
         emitter
           .to(`user-${creator.id}`)
           .emit('group_conversation_updated_notification', {
-            event: mapEventResponse(threadEvent),
+            event:
+              mapEventResponse<Domain_Events.GROUP_CONVERSATION_UPDATED>(
+                threadEvent
+              ),
             conversation: mapThreadResponse(updatedThread),
           })
 
@@ -493,9 +523,11 @@ async function start() {
         if (!threadEvent) {
           emitter.emit('error', 'Failed to create conversation deleted event')
         }
-        const deliveries = await DeliveryService.initDelivery(threadEvent.id, [
-          creator,
-        ])
+        const deliveries = await DeliveryService.initDelivery(
+          threadEvent.id,
+          thread,
+          [creator]
+        )
         if (!deliveries || deliveries.length === 0) {
           emitter.emit(
             'error',
@@ -511,7 +543,8 @@ async function start() {
         emitter
           .to(`user-${creator.id}`)
           .emit('conversation_deleted_notification', {
-            event: mapEventResponse(threadEvent),
+            event:
+              mapEventResponse<Domain_Events.CONVERSATION_DELETED>(threadEvent),
             conversation: mapThreadResponse(thread),
           })
 

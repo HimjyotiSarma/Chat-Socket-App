@@ -15,6 +15,7 @@ import {
   AttachmentInput,
   CreateAttachmentDTO,
 } from '../Types/DataTransferObjects/AttachmentDTO'
+import { get } from 'http'
 
 class MessageService {
   async find(messageId: string, manager = AppDataSource.manager) {
@@ -74,6 +75,7 @@ class MessageService {
         .createQueryBuilder(Message, 'message')
         .leftJoinAndSelect('message.sender', 'sender')
         .leftJoinAndSelect('message.attachments', 'attachments')
+        .leftJoinAndSelect('message.reactions', 'reactions')
         .where('sender.id = :userId', { userId })
         .andWhere(`message.content->>'value' ILIKE :keyword`, {
           keyword: `%${keyword}%`,
@@ -148,6 +150,7 @@ class MessageService {
         threadOffset.user = user
       }
       threadOffset.lastReadMsg = lastReadMsg
+      threadOffset.lastOffsetAt = new Date()
       const savedThreadOffset = await manager.save(threadOffset)
       return savedThreadOffset
     } catch (error) {
@@ -214,7 +217,7 @@ class MessageService {
     manager = AppDataSource.manager
   ) {
     try {
-      const reaction = await manager.findOne(Reaction, {
+      const reactions = await manager.find(Reaction, {
         where: {
           message: {
             id: messageId,
@@ -224,12 +227,33 @@ class MessageService {
           },
         },
       })
-      if (reaction) {
+      if (reactions) {
         return true
       }
       return false
     } catch (error) {
       handleTypeOrmError(error, 'Error checking if Reaction is available')
+    }
+  }
+
+  async getMessageReactions(
+    messageId: string,
+    manager = AppDataSource.manager
+  ) {
+    try {
+      const reactions = await manager.find(Reaction, {
+        where: {
+          message: {
+            id: messageId,
+          },
+        },
+        order: {
+          reactedAt: 'DESC',
+        },
+      })
+      return reactions
+    } catch (error) {
+      handleTypeOrmError(error, 'Error finding Message Reactions')
     }
   }
 
@@ -283,6 +307,42 @@ class MessageService {
       return await manager.remove(reaction)
     } catch (error) {
       handleTypeOrmError(error, 'Error deleting Message Reaction')
+    }
+  }
+
+  async deleteAllMessageReactions(
+    messageId: string,
+    manager = AppDataSource.manager
+  ) {
+    try {
+      const reactions = await manager.find(Reaction, {
+        where: {
+          message: {
+            id: messageId,
+          },
+        },
+      })
+      return await manager.remove(reactions)
+    } catch (error) {
+      handleTypeOrmError(error, 'Error deleting Message Reactions')
+    }
+  }
+
+  async deleteAllMessageAttachments(
+    messageId: string,
+    manager = AppDataSource.manager
+  ) {
+    try {
+      const attachments = await manager.find(Attachment, {
+        where: {
+          message: {
+            id: messageId,
+          },
+        },
+      })
+      return await manager.remove(attachments)
+    } catch (error) {
+      handleTypeOrmError(error, 'Error deleting Message Attachments')
     }
   }
 
@@ -454,6 +514,28 @@ class MessageService {
       })
   }
 
+  async getMessageAttachments(
+    messageId: string,
+    manager = AppDataSource.manager
+  ) {
+    try {
+      const attachments = await manager.find(Attachment, {
+        where: {
+          message: {
+            id: messageId,
+          },
+        },
+        relations: ['user', 'message'],
+        order: {
+          createdAt: 'DESC',
+        },
+      })
+      return attachments
+    } catch (error) {
+      handleTypeOrmError(error, 'Error finding Attachments')
+    }
+  }
+
   async deleteAttachments(
     messageId: string,
     userId: string,
@@ -488,8 +570,37 @@ class MessageService {
         handleTypeOrmError(error, 'Error deleting Attachment')
       })
   }
-  // Pin Message if Required
   // Get Latest Message
+  async findLatestMessage(threadId: string, manager = AppDataSource.manager) {
+    try {
+      const message = await manager
+        .createQueryBuilder(Message, 'message')
+        .leftJoinAndSelect('message.conversation', 'conversation')
+        .leftJoinAndSelect('message.sender', 'sender')
+        .leftJoinAndSelect('message.attachments', 'attachments')
+        .leftJoinAndSelect('message.reactions', 'reactions')
+        .where('conversation.id = :threadId', { threadId })
+        .orderBy('message.createdAt', 'DESC')
+        .limit(1)
+        .getOne()
+      if (!message) throw new Error('Message not found')
+      if (message?.reactions?.length) {
+        const reactions = await this.getMessageReactions(message.id, manager)
+        return reactions[0]
+      }
+      if (message?.attachments?.length) {
+        const attachments = await this.getMessageAttachments(
+          message.id,
+          manager
+        )
+        return attachments[0]
+      }
+      return message
+    } catch (error) {
+      handleTypeOrmError(error, 'Error finding latest message')
+    }
+  }
+  // Pin Message if Required
 }
 
 export default new MessageService()

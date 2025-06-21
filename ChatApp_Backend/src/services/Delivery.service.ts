@@ -4,8 +4,11 @@ import { AppDataSource } from '../database/data-source'
 import handleTypeOrmError from '../utils/handleTypeOrmError'
 import { DeliveryStatus } from '../entity/DeliveryStatus'
 import EventService from './Event.service'
-import { Domain_Events } from '../Types/Enums'
+import { Domain_Events, Event_Aggregate_Type } from '../Types/Enums'
 import { DomainEvent } from '../entity/DomainEvent'
+import { get } from 'http'
+import { Conversation } from '../entity/Conversations'
+import { Message } from '../entity/Message'
 
 class DeliveryService {
   async find(
@@ -56,6 +59,7 @@ class DeliveryService {
 
   async initDelivery(
     eventId: bigint,
+    thread: Conversation,
     users: User[],
     manager: EntityManager = AppDataSource.manager
   ) {
@@ -66,6 +70,7 @@ class DeliveryService {
           const delivery = new DeliveryStatus()
           delivery.domainEvent = event
           delivery.user = user
+          delivery.conversation = thread
           return delivery
         })
         const savedDeliveryStatuses = await transactionalManager.save(
@@ -163,19 +168,44 @@ class DeliveryService {
     }
   }
 
-  async getUnacknowlegedDeliveriesforUser(
+  async getUnAcknowledgedDeliveriesForUser(
     user: User,
+    thread: Conversation,
     manager: EntityManager = AppDataSource.manager
   ) {
     try {
       const unacknowledgedDeliveries = await manager.find(DeliveryStatus, {
         where: {
           user: user,
+          conversation: thread,
           deliveredAt: Not(IsNull()),
           ackAt: IsNull(),
         },
+        order: {
+          createdAt: 'ASC',
+        },
       })
       return unacknowledgedDeliveries
+    } catch (error) {
+      handleTypeOrmError(error, 'Error finding unacknowledged deliveries')
+    }
+  }
+
+  async getUnacknowledgedDeliveriesForUserInThread(
+    user: User,
+    thread: Conversation,
+    manager: EntityManager = AppDataSource.manager
+  ) {
+    try {
+      const unackMessageDeliveries = await manager.find(DeliveryStatus, {
+        where: {
+          user: user,
+          domainEvent: {
+            aggregateType: Event_Aggregate_Type.MESSAGE,
+          },
+          ackAt: IsNull(),
+        },
+      })
     } catch (error) {
       handleTypeOrmError(error, 'Error finding unacknowledged deliveries')
     }

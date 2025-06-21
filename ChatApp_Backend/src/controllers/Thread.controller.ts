@@ -4,7 +4,11 @@ import EventService from '../services/Event.service'
 import MessageService from '../services/Message.service'
 import ThreadService from '../services/Thread.service'
 import UserService from '../services/User.service'
-import { Domain_Events, Thread_Types } from '../Types/Enums'
+import {
+  Domain_Events,
+  Event_Aggregate_Type,
+  Thread_Types,
+} from '../Types/Enums'
 import {
   mapEventResponse,
   mapMessageResponse,
@@ -14,6 +18,9 @@ import {
 } from '../utils/ResponseMapper'
 import { EventToTopic } from '../utils/TopicEventConverter'
 import SocketController from './utils/Socket.controller'
+import DeliveryService from '../services/Delivery.service'
+import { DeliveryStatus } from '../entity/DeliveryStatus'
+import { User } from '../entity/User'
 
 class ThreadController extends SocketController {
   async register() {
@@ -87,6 +94,25 @@ class ThreadController extends SocketController {
             threadId: data.thread_id,
             userIds: data.user_ids,
             creator: user,
+          })
+        )
+      )
+    })
+
+    socket.on('add_thread_participant_acknowledged', async (data) => {
+      if (!userId || !username) {
+        return socket.emit('error', 'Invalid token')
+      }
+      const eventTopic = EventToTopic(
+        Domain_Events.PARTICIPANT_ADDED_ACKNOWLEDGED
+      )
+      publishEvent(
+        'event_hub',
+        eventTopic,
+        Buffer.from(
+          JSON.stringify({
+            event: data.event,
+            userId: userId,
           })
         )
       )
@@ -204,17 +230,7 @@ class ThreadController extends SocketController {
       if (!userId || !username) {
         return socket.emit('error', 'Invalid token')
       }
-      const eventTopic = EventToTopic(Domain_Events.MARK_THREAD_READ)
-      publishEvent(
-        'event_hub',
-        eventTopic,
-        Buffer.from(
-          JSON.stringify({
-            threadId: data.thread_id,
-            creator: user,
-          })
-        )
-      )
+      await this.markThreadRead(data.thread_id, user)
     })
 
     socket.on('mark_thread_read_acknowledged', async (data) => {
@@ -323,59 +339,88 @@ class ThreadController extends SocketController {
     })
 
     socket.on('open_thread', async (data) => {
-      if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+      try {
+        if (!userId || !username) {
+          return socket.emit('error', 'Invalid token')
+        }
+        const thread = await ThreadService.find(data.thread_id)
+        // Fetch all Unacknowledged Message Events
+        const unAckMessageDeliveries =
+          await DeliveryService.getUnAcknowledgedDeliveriesForUser(user, thread)
+
+        if (!unAckMessageDeliveries || unAckMessageDeliveries.length === 0) {
+          socket.emit(
+            'error',
+            'No Unacknowledged Messages found in the conversation'
+          )
+          return
+        }
+        // Retry Unacknowledged Message Deliveries
+        await this.retryUnAckMsgDeliveriesForUser(unAckMessageDeliveries)
+        // Mark the Thread as Read
+        await this.markThreadRead(data.thread_id, user)
+      } catch (error) {
+        socket.emit('error', 'Error opening thread: ' + error)
+        console.error(error)
       }
-      socket.join(this.room('thread', data.thread_id))
-      const threadOffsetDate = await ThreadService.findLastOffsetDate(
-        data.thread_id,
-        userId
-      )
-
-      const pendingMessages = await ThreadService.findMessages(
-        data.thread_id,
-        100,
-        0,
-        threadOffsetDate
-      )
-
-      const pendingMessagesEvents = await Promise.all(
-        pendingMessages.map(async (message) => {
-          const event = await EventService.getEventOfMessage(message.id)
-          if (!event) return null
-          return {
-            event: mapEventResponse(event),
-            message: mapMessageResponse(message),
-          }
-        })
-      )
-
-      if (!pendingMessagesEvents) {
-        socket
-          .to(this.room('user', userId))
-          .emit('error', 'No pending messages found')
-        return
-      }
-      const filterNonNullMessageEvents = pendingMessagesEvents.filter(
-        (messageEvent) => messageEvent !== null
-      )
-
-      socket
-        .to(this.room('user', userId))
-        .emit('pending_messages_of_thread', [...filterNonNullMessageEvents])
-
-      // Get Pending Reactions
-      const filteredPendingMessageIds = pendingMessages.map(
-        (message) => message.id
-      )
-      const pendingReactions = await MessageService.getReactionsOfMessages(
-        filteredPendingMessageIds
-      )
-      socket
-        .to(this.room('user', userId))
-        .emit('pending_reactions_of_thread', pendingReactions)
-
-      // Also fetch all the pending attachments
     })
+
+    socket.on('close_thread', async (data) => {
+      try {
+        if (!userId || !username) {
+          return socket.emit('error', 'Invalid token')
+        }
+        // Mark the Thread as Read
+        await this.markThreadRead(data.thread_id, user)
+      } catch (error) {
+        socket.emit('error', 'Error closing thread: ' + error)
+        console.error(error)
+      }
+    })
+  }
+
+  async retryUnAckMsgDeliveriesForUser(deliveries: DeliveryStatus[]) {
+    try {
+      const eventTopic = 'event.retry.message'
+
+      publishEvent(
+        'event_hub',
+        eventTopic,
+        Buffer.from(
+          JSON.stringify({
+            deliveries: deliveries,
+            userId: this.socket.data.userId,
+          })
+        )
+      )
+    } catch (error) {
+      if (error instanceof Error) {
+        this.socket.emit('error', error.message)
+      } else {
+        this.socket.emit('error', 'Error retrying delivery')
+      }
+    }
+  }
+
+  async markThreadRead(threadId: string, user: User) {
+    try {
+      const eventTopic = EventToTopic(Domain_Events.MARK_THREAD_READ)
+      publishEvent(
+        'event_hub',
+        eventTopic,
+        Buffer.from(
+          JSON.stringify({
+            threadId: threadId,
+            user: user,
+          })
+        )
+      )
+    } catch (error) {
+      if (error instanceof Error) {
+        this.socket.emit('error', error.message)
+      } else {
+        this.socket.emit('error', 'Error retrying delivery')
+      }
+    }
   }
 }

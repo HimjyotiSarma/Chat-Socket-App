@@ -16,7 +16,10 @@ import { UserInfoDTO } from '../Types/DataTransferObjects/UsersDTO'
 import { Attachment } from '../entity/Attachment'
 import { Reaction } from '../entity/Reaction'
 import { DomainEvent } from '../entity/DomainEvent'
-import { EventInfoDTO } from '../Types/DataTransferObjects/EventsDTO'
+import {
+  DomainEventPayloadMap,
+  EventInfoDTO,
+} from '../Types/DataTransferObjects/EventsDTO'
 
 const mapUserResponse = (user: User): UserInfoDTO => {
   const userResponse = {
@@ -110,16 +113,17 @@ const mapMessageResponse = (message: Message): MessageInfoDTO => {
   return messageResponse
 }
 
-const mapEventResponse = (domainEvent: DomainEvent): EventInfoDTO => {
-  const eventResponse = {
+function mapEventResponse<T extends keyof DomainEventPayloadMap>(
+  domainEvent: DomainEvent
+): EventInfoDTO<T> {
+  return {
     id: domainEvent.id,
     aggregateType: domainEvent.aggregateType,
     aggregateId: domainEvent.aggregateId,
-    eventType: domainEvent.eventType,
-    payload: domainEvent.payload,
-    created_at: domainEvent.createdAt,
+    eventType: domainEvent.eventType as T,
+    payload: domainEvent.payload as DomainEventPayloadMap[T],
+    createdAt: domainEvent.createdAt,
   }
-  return eventResponse
 }
 
 export {

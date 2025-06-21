@@ -100,42 +100,61 @@ const TopicToEvent = (topic: string) => {
 }
 
 const EventTypeToEventName = (eventType: Domain_Events) => {
-  if (eventType == Domain_Events.MESSAGE_CREATED) {
-    return 'message_created'
-  } else if (eventType == Domain_Events.MESSAGE_UPDATED) {
-    return 'message_updated'
-  } else if (eventType == Domain_Events.MESSAGE_DELETED) {
-    return 'message_deleted'
-  } else if (eventType == Domain_Events.BULK_MESSAGE_DELETED) {
-    return 'bulk_message_deleted'
-  } else if (eventType == Domain_Events.DM_CONVERSATION_CREATED) {
-    return 'dm_conversation_created'
-  } else if (eventType == Domain_Events.GROUP_CONVERSATION_CREATED) {
-    return 'group_conversation_created'
-  } else if (eventType == Domain_Events.GROUP_CONVERSATION_UPDATED) {
-    return 'group_conversation_updated'
-  } else if (eventType == Domain_Events.CONVERSATION_DELETED) {
-    return 'conversation_deleted'
-  } else if (eventType == Domain_Events.PARTICIPANT_ADDED) {
-    return 'participant_added'
-  } else if (eventType == Domain_Events.PARTICIPANT_REMOVED) {
-    return 'participant_removed'
-  } else if (eventType == Domain_Events.MULTIPLE_PARTICIPANT_ADDED) {
-    return 'multiple_participant_added'
-  } else if (eventType == Domain_Events.MARK_THREAD_READ) {
-    return 'mark_thread_read'
-  } else if (eventType == Domain_Events.REACTION_ADDED) {
-    return 'reaction_added'
-  } else if (eventType == Domain_Events.REACTION_REMOVED) {
-    return 'reaction_removed'
-  } else if (eventType == Domain_Events.ATTACHMENT_ADDED) {
-    return 'attachment_added'
-  } else if (eventType == Domain_Events.ATTACHMENT_REMOVED) {
-    return 'attachment_removed'
-  } else if (eventType == Domain_Events.USER_PROFILE_UPDATED) {
-    return 'user_profile_updated'
-  } else {
-    return 'error'
+  switch (eventType) {
+    case Domain_Events.MESSAGE_CREATED:
+      return 'message_created'
+    case Domain_Events.MESSAGE_UPDATED:
+      return 'message_updated'
+    case Domain_Events.MESSAGE_DELETED:
+      return 'message_deleted'
+    case Domain_Events.BULK_MESSAGE_DELETED:
+      return 'bulk_message_deleted'
+    case Domain_Events.DM_CONVERSATION_CREATED:
+      return 'dm_conversation_created'
+    case Domain_Events.GROUP_CONVERSATION_CREATED:
+      return 'group_conversation_created'
+    case Domain_Events.GROUP_CONVERSATION_UPDATED:
+      return 'group_conversation_updated'
+    case Domain_Events.GROUP_CONVERSATION_UPDATED_ACKNOWLEDGED:
+      return 'group_conversation_updated_acknowledged'
+    case Domain_Events.CONVERSATION_DELETED:
+      return 'conversation_deleted'
+    case Domain_Events.CONVERSATION_DELETED_ACKNOWLEDGED:
+      return 'conversation_deleted_acknowledged'
+    case Domain_Events.CONVERSATION_CREATED_ACKNOWLEDGED:
+      return 'conversation_created_acknowledged'
+    case Domain_Events.PARTICIPANT_ADDED:
+      return 'participant_added'
+    case Domain_Events.PARTICIPANT_REMOVED:
+      return 'participant_removed'
+    case Domain_Events.MULTIPLE_PARTICIPANT_ADDED:
+      return 'multiple_participant_added'
+    case Domain_Events.PARTICIPANT_ADDED_ACKNOWLEDGED:
+      return 'participant_added_acknowledged'
+    case Domain_Events.PARTICIPANT_REMOVED_ACKNOWLEDGED:
+      return 'participant_removed_acknowledged'
+    case Domain_Events.MULTIPLE_PARTICIPANT_ADDED_ACKNOWLEDGED:
+      return 'multiple_participant_added_acknowledged'
+    case Domain_Events.MARK_THREAD_READ:
+      return 'mark_thread_read'
+    case Domain_Events.MARK_THREAD_READ_ACKNOWLEDGED:
+      return 'mark_thread_read_acknowledged'
+    case Domain_Events.REACTION_ADDED:
+      return 'reaction_added'
+    case Domain_Events.REACTION_REMOVED:
+      return 'reaction_removed'
+    case Domain_Events.ATTACHMENT_ADDED:
+      return 'attachment_added'
+    case Domain_Events.ATTACHMENT_REMOVED:
+      return 'attachment_removed'
+    case Domain_Events.USER_PROFILE_UPDATED:
+      return 'user_profile_updated'
+    case Domain_Events.JOIN_THREAD:
+      return 'joined_thread'
+    case Domain_Events.LEAVE_THREAD:
+      return 'left_thread'
+    default:
+      return 'error'
   }
 }
 

@@ -38,7 +38,43 @@ class MessageController extends SocketController {
       )
     })
 
-    socket.on('message_acknowledged', async (data) => {
+    socket.on('update_message', async (data) => {
+      if (!socket.data.userId || !socket.data.username) {
+        return socket.emit('error', 'Invalid token')
+      }
+      const eventTopic = EventToTopic(Domain_Events.MESSAGE_UPDATED)
+      publishEvent(
+        'event_hub',
+        eventTopic,
+        Buffer.from(JSON.stringify({ data: data, creator: user }))
+      )
+    })
+
+    socket.on('delete_message', async (data) => {
+      if (!socket.data.userId || !socket.data.username) {
+        return socket.emit('error', 'Invalid token')
+      }
+      const eventTopic = EventToTopic(Domain_Events.MESSAGE_DELETED)
+      publishEvent(
+        'event_hub',
+        eventTopic,
+        Buffer.from(JSON.stringify({ data: data, creator: user }))
+      )
+    })
+
+    socket.on('bulk_message_delete', async (data) => {
+      if (!socket.data.userId || !socket.data.username) {
+        return socket.emit('error', 'Invalid token')
+      }
+      const eventTopic = EventToTopic(Domain_Events.BULK_MESSAGE_DELETED)
+      publishEvent(
+        'event_hub',
+        eventTopic,
+        Buffer.from(JSON.stringify({ data: data, creator: user }))
+      )
+    })
+
+    socket.on('create_message_acknowledged', async (data) => {
       if (!socket.data.userId || !socket.data.username) {
         return socket.emit('error', 'Invalid token')
       }
@@ -57,61 +93,154 @@ class MessageController extends SocketController {
         )
       )
     })
-  }
-  async retryPendingDeliveriesForUser(
-    userId: string,
-    threadLimit: number = 100
-  ) {
-    try {
-      const { io, socket } = this
-      // Check in Thread Participants where the user is part of
-      const userThreadOffsets = await UserService.findThreadOffsets(userId)
-      if (!userThreadOffsets) {
-        console.log('No threads found for user')
-        return
+
+    socket.on('updated_message_acknowledged', async (data) => {
+      if (!socket.data.userId || !socket.data.username) {
+        return socket.emit('error', 'Invalid token')
       }
-      for (const threadOffset of userThreadOffsets) {
-        const offsetAtDate = threadOffset.lastOffsetAt
-        // Fetch All messages for a thread
-        const messages = await ThreadService.findMessages(
-          threadOffset.threadId,
-          threadLimit,
-          0,
-          offsetAtDate
+      if (socket.data.userId !== data.message.sender.id) {
+        return socket.emit('error', 'Invalid token')
+      }
+      if (data.event.aggregateType !== Event_Aggregate_Type.MESSAGE) {
+        return socket.emit('error', 'Invalid event type')
+      }
+      const eventTopic = EventToTopic(Domain_Events.MESSAGE_ACKNOWLEDGED)
+      await publishEvent(
+        'event_hub',
+        eventTopic,
+        Buffer.from(
+          JSON.stringify({ event: data.event, userId: socket.data.userId })
         )
-        if (!messages.length) {
-          console.log('No messages found for thread')
-          return
-        }
-        // Get Event for each Message
-        let messageEvents: { event: EventInfoDTO; message: MessageInfoDTO }[] =
-          []
-        for (let message of messages) {
-          const event = await EventService.getEventOfMessage(
-            message.id,
-            Domain_Events.MESSAGE_CREATED
-          )
-          if (!event) {
-            console.log('No event found for message with id : ', message.id)
-            continue
-          }
-          messageEvents.push({
-            event: mapEventResponse(event),
-            message: mapMessageResponse(message),
-          })
-        }
-        // Thread Room
-        const personalThreadRoom = `user-${userId}:thread-${threadOffset.threadId}`
-        // Join personal thread room from Thread Controller
-        // Emit the messages to the user
-        io.timeout(5000)
-          .to(personalThreadRoom)
-          .emit('bulk_message_created', messageEvents)
+      )
+    })
+
+    socket.on('deleted_message_acknowledged', async (data) => {
+      if (!socket.data.userId || !socket.data.username) {
+        return socket.emit('error', 'Invalid token')
       }
-    } catch (error) {
-      console.log('Error in retryPendingDeliveriesForUser : ', error)
-    }
+      if (socket.data.userId !== data.message.sender.id) {
+        return socket.emit('error', 'Invalid token')
+      }
+      if (data.event.aggregateType !== Event_Aggregate_Type.MESSAGE) {
+        return socket.emit('error', 'Invalid event type')
+      }
+      const eventTopic = EventToTopic(Domain_Events.MESSAGE_ACKNOWLEDGED)
+      await publishEvent(
+        'event_hub',
+        eventTopic,
+        Buffer.from(
+          JSON.stringify({ event: data.event, userId: socket.data.userId })
+        )
+      )
+    })
+
+    socket.on('bulk_message_deleted_acknowledged', async (data) => {
+      if (!socket.data.userId || !socket.data.username) {
+        return socket.emit('error', 'Invalid token')
+      }
+      for (const message of data.messages) {
+        if (socket.data.userId !== message.sender.id) {
+          return socket.emit('error', 'Invalid token')
+        }
+      }
+
+      if (data.event.aggregateType !== Event_Aggregate_Type.MESSAGE) {
+        return socket.emit('error', 'Invalid event type')
+      }
+      const eventTopic = EventToTopic(Domain_Events.MESSAGE_ACKNOWLEDGED)
+      await publishEvent(
+        'event_hub',
+        eventTopic,
+        Buffer.from(
+          JSON.stringify({ event: data.event, userId: socket.data.userId })
+        )
+      )
+    })
+
+    socket.on('pending_msg_count_per_thread', async () => {
+      const associatedThreads = await UserService.findThreads(userId)
+      if (!associatedThreads) {
+        return socket.emit('error', 'No threads found for user')
+      }
+      const msgCountPerThreadAndOffset = await Promise.all(
+        associatedThreads.map(async (thread) => {
+          const lastOffsetAt = await ThreadService.findLastOffsetDate(
+            thread.id,
+            userId
+          )
+          const messageCount = await MessageService.getUnreadCount(
+            thread.id,
+            userId
+          )
+          const latestMessage = await MessageService.findLatestMessage(
+            thread.id
+          )
+          return {
+            threadId: thread.id,
+            lastOffsetAt,
+            messageCount,
+            latestMessage,
+          }
+        })
+      )
+
+      return msgCountPerThreadAndOffset
+    })
   }
+  // async retryPendingDeliveriesForUser(
+  //   userId: string,
+  //   threadLimit: number = 100
+  // ) {
+  //   try {
+  //     const { io, socket } = this
+  //     // Check in Thread Participants where the user is part of
+  //     const userThreadOffsets = await UserService.findThreadOffsets(userId)
+  //     if (!userThreadOffsets) {
+  //       console.log('No threads found for user')
+  //       return
+  //     }
+  //     for (const threadOffset of userThreadOffsets) {
+  //       const offsetAtDate = threadOffset.lastOffsetAt
+  //       // Fetch All messages for a thread
+  //       const messages = await ThreadService.findMessages(
+  //         threadOffset.threadId,
+  //         threadLimit,
+  //         0,
+  //         offsetAtDate
+  //       )
+  //       if (!messages.length) {
+  //         console.log('No messages found for thread')
+  //         return
+  //       }
+  //       // Get Event for each Message
+  //       let messageEvents: { event: EventInfoDTO; message: MessageInfoDTO }[] =
+  //         []
+  //       for (let message of messages) {
+  //         const event = await EventService.getEventOfMessage(
+  //           message.id,
+  //           Domain_Events.MESSAGE_CREATED
+  //         )
+  //         if (!event) {
+  //           console.log('No event found for message with id : ', message.id)
+  //           continue
+  //         }
+  //         messageEvents.push({
+  //           event: mapEventResponse(event),
+  //           message: mapMessageResponse(message),
+  //         })
+  //       }
+  //       // Thread Room
+  //       const personalThreadRoom = `user-${userId}:thread-${threadOffset.threadId}`
+  //       // Join personal thread room from Thread Controller
+  //       // Emit the messages to the user
+  //       io.timeout(5000)
+  //         .to(personalThreadRoom)
+  //         .emit('bulk_message_created', messageEvents)
+  //     }
+  //   } catch (error) {
+  //     console.log('Error in retryPendingDeliveriesForUser : ', error)
+  //   }
+  // }
 
   // async handleInitialMessageDelivery(
   //   event: EventInfoDTO,

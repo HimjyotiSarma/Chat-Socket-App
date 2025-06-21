@@ -73,6 +73,22 @@ class EventService {
       handleTypeOrmError(error, 'Error publishing Event')
     }
   }
+
+  async deleteAllMessageEvents(
+    messageId: string,
+    manager = AppDataSource.manager
+  ) {
+    try {
+      const events = await manager.find(DomainEvent, {
+        where: {
+          aggregateId: messageId,
+        },
+      })
+      return await manager.remove(events)
+    } catch (error) {
+      handleTypeOrmError(error, 'Error deleting Message Events')
+    }
+  }
   async getAllUnpublishedEvents(
     limit: number = 100,
     offset: number = 0,

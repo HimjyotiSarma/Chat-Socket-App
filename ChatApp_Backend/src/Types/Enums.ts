@@ -25,6 +25,7 @@ export enum Domain_Events {
   MESSAGE_DELETED = 'message_deleted',
   MESSAGE_ACKNOWLEDGED = 'message_acknowledged',
   BULK_MESSAGE_DELETED = 'bulk_message_deleted',
+  BULK_MESSAGE_DELETED_ACKNOWLEDGED = 'bulk_message_deleted_acknowledged',
   DM_CONVERSATION_CREATED = 'dm_conversation_created',
   GROUP_CONVERSATION_CREATED = 'group_conversation_created',
   GROUP_CONVERSATION_UPDATED = 'group_conversation_updated',
