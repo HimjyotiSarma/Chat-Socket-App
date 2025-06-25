@@ -24,12 +24,15 @@ export class Attachment {
   message!: Message
 
   @Column({
-    name: 'file_type',
+    name: 'file_format',
     type: 'enum',
     enum: AttachmentTypes,
     default: AttachmentTypes.OTHER,
   })
-  fileType!: AttachmentTypes
+  fileFormat!: AttachmentTypes
+
+  @Column({ name: 'file_type', type: 'varchar', length: 255, nullable: true })
+  fileType!: string
 
   @Column({ type: 'varchar', length: 2048 })
   url!: string

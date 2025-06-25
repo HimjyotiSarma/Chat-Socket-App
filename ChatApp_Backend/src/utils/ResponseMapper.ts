@@ -40,6 +40,7 @@ const mapAttachmentResponse = (
   const attachmentResponse = {
     id: attachment.id,
     message_id: attachment.message.id,
+    file_format: attachment.fileFormat,
     file_type: attachment.fileType,
     url: attachment.url,
     thumbnail_url: attachment.thumbnail_url,

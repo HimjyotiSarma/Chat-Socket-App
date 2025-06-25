@@ -137,23 +137,26 @@ const logoutUser = asyncHandler(async (req, res) => {
 })
 
 const refreshToken = asyncHandler(async (req, res) => {
-  console.log('Incoming Refresh Token : ', req.cookies?.refreshToken)
-  console.log(
-    'Incoming Signed Refresh Token : ',
-    req.signedCookies?.refreshToken
-  )
-  const incomingRefreshToken = req.signedCookies?.refreshToken
-  if (!incomingRefreshToken) {
-    throw new ApiError(401, 'Refresh token is required')
-  }
-  const decodedToken = decode_refresh_token(incomingRefreshToken)
-  if (!decodedToken || !decodedToken.refresh || !decodedToken.user) {
-    throw new ApiError(401, 'Invalid refresh token')
+  // console.log('Incoming Refresh Token : ', req.cookies?.refreshToken)
+  // console.log(
+  //   'Incoming Signed Refresh Token : ',
+  //   req.signedCookies?.refreshToken
+  // )
+  // const incomingRefreshToken = req.signedCookies?.refreshToken
+  // if (!incomingRefreshToken) {
+  //   throw new ApiError(401, 'Refresh token is required')
+  // }
+  // const decodedToken = decode_refresh_token(incomingRefreshToken)
+  // if (!decodedToken || !decodedToken.refresh || !decodedToken.user) {
+  //   throw new ApiError(401, 'Invalid refresh token')
+  // }
+  if (!req.user) {
+    throw new ApiError(401, 'Unauthorized')
   }
 
   const { accessToken, refreshToken } = generateAccessAndRefreshTokens(
-    decodedToken.user.id,
-    decodedToken.user.username
+    req.user.id,
+    req.user.username
   )
   res.setHeader('Authorization', `Bearer ${accessToken}`)
   res

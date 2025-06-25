@@ -10,7 +10,7 @@ class SocketController {
     this.socket = socket
   }
 
-  register() {
+  async register() {
     throw new Error('register() not initialized')
   }
 

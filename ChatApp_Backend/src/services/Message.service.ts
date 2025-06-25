@@ -16,6 +16,7 @@ import {
   CreateAttachmentDTO,
 } from '../Types/DataTransferObjects/AttachmentDTO'
 import { get } from 'http'
+import EventService from './Event.service'
 
 class MessageService {
   async find(messageId: string, manager = AppDataSource.manager) {
@@ -201,6 +202,10 @@ class MessageService {
         const thread = await ThreadService.find(threadId, transactionalManager)
         if (message.sender.id != user.id)
           throw new Error('Only sender can delete message')
+        const deletedMessageEvent = await EventService.deleteAllMessageEvents(
+          message.id,
+          transactionalManager
+        )
         const deletedMessage = await transactionalManager.remove(message)
         thread.updatedAt = new Date()
         await transactionalManager.save(thread)
@@ -435,6 +440,29 @@ class MessageService {
       })
   }
 
+  async getReactionOfUser(
+    messageId: string,
+    userId: string,
+    manager: EntityManager = AppDataSource.manager
+  ) {
+    try {
+      const reaction = await manager.findOne(Reaction, {
+        where: {
+          message: {
+            id: messageId,
+          },
+          user: {
+            id: userId,
+          },
+        },
+      })
+      if (!reaction) return null
+      return reaction
+    } catch (error) {
+      handleTypeOrmError(error, 'Error finding Message Reactions')
+    }
+  }
+
   async getReactions(messageId: string, manager = AppDataSource.manager) {
     try {
       const reactionsCount = await manager
@@ -481,6 +509,7 @@ class MessageService {
     user_id: string,
     messageContent: Record<string, any>,
     attachmentsInput: AttachmentInput[],
+    reply_to_message_id: string | undefined = undefined,
     manager = AppDataSource.manager
   ) {
     return await manager
@@ -491,13 +520,15 @@ class MessageService {
           thread.id,
           user.id,
           messageContent,
-          undefined,
+          reply_to_message_id,
           transactionalManager
         )
         const attachmentsToAdd = attachmentsInput.map((attachmentDetails) => {
-          const { url, thumbnail_url, fileType } = attachmentDetails
+          const { url, thumbnail_url, file_format, file_type } =
+            attachmentDetails
           const attachment = new Attachment()
-          attachment.fileType = fileType
+          attachment.fileFormat = file_format
+          attachment.fileType = file_type
           attachment.message = newMessage
           attachment.user = user
           attachment.url = url

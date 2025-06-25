@@ -11,8 +11,7 @@ export enum Thread_Types {
 export enum AttachmentTypes {
   IMAGE = 'image',
   VIDEO = 'video',
-  DOCUMENT = 'document',
-  OTHER = 'other',
+  OTHER = 'raw',
 }
 export enum Event_Aggregate_Type {
   MESSAGE = 'message',
@@ -43,6 +42,7 @@ export enum Domain_Events {
   MARK_THREAD_READ_ACKNOWLEDGED = 'mark_thread_read_acknowledged',
   REACTION_ADDED = 'reaction_added',
   REACTION_REMOVED = 'reaction_removed',
+  REACTION_ACKNOWLEDGED = 'reaction_acknowledged',
   ATTACHMENT_ADDED = 'attachment_added',
   ATTACHMENT_REMOVED = 'attachment_removed',
   USER_PROFILE_UPDATED = 'user_profile_updated',

@@ -2,6 +2,8 @@ import amqp from 'amqplib'
 import { EventInfoDTO } from '../Types/DataTransferObjects/EventsDTO'
 import {
   CreateMessageDTO,
+  CreateReactionDTO,
+  MessageBulkDTO,
   MessageInfoDTO,
   UpdateMessageDTO,
 } from '../Types/DataTransferObjects/MessageDTO'
@@ -16,6 +18,12 @@ import { Emitter } from '@socket.io/redis-emitter'
 import { ServerToClientEvents } from '../Types/SocketEvents'
 import handleMessageUpdate from './utils/handleMessageUpdation'
 import handleMessageDelete from './utils/handleMessageDelete'
+import handleBulkMessageDelete from './utils/handleBulkMessageDelete'
+import ThreadService from '../services/Thread.service'
+import handleReactionCreation from './utils/handleReactionCreation'
+import handleReactionDeletion from './utils/handleReactionDeletion'
+import { CreateAttachmentDTO } from '../Types/DataTransferObjects/AttachmentDTO'
+import handleAttachmentCreation from './utils/handleAttachmentCreation'
 
 async function start() {
   const connection = await amqp.connect(
@@ -81,8 +89,80 @@ async function start() {
           emitter.emit('error', 'Only sender can delete message')
         }
         await handleMessageDelete(message, creator, emitter)
+      } else if (msg.fields.routingKey == 'event.message.bulk.deleted') {
+        const { data, creator }: { data: MessageBulkDTO; creator: User } =
+          payload
+        const messages = await Promise.all(
+          data.messageIds.map((id) => MessageService.find(id))
+        )
+        const filteredMessages = []
+        for (const message of messages) {
+          if (!message) {
+            emitter.emit('error', 'Message not found')
+            continue
+          }
+          if (message.sender.id != creator.id) {
+            emitter.emit('error', 'Only sender can delete message')
+            continue
+          }
+          if (message.conversation.id != data.thread_id) {
+            emitter.emit(
+              'error',
+              `Message ${message.id} does not belong to the thread`
+            )
+            continue
+          }
+          filteredMessages.push(message)
+        }
+        await handleBulkMessageDelete(
+          data.thread_id,
+          creator,
+          filteredMessages,
+          emitter
+        )
+      } else if (msg.fields.routingKey == 'event.message.reaction.added') {
+        const { data, creator }: { data: CreateReactionDTO; creator: User } =
+          payload
+        const message = await MessageService.find(data.message_id)
+        if (!message) {
+          emitter.emit('error', 'Message not found')
+          return
+        }
+        if (
+          !ThreadService.isUserInThread(message.conversation.id, creator.id)
+        ) {
+          emitter.emit('error', 'User is not in the thread')
+          return
+        }
+        await handleReactionCreation(message, data.emojiHex, creator, emitter)
+      } else if (msg.fields.routingKey == 'event.message.reaction.removed') {
+        const {
+          data,
+          creator,
+        }: { data: { messageId: string }; creator: User } = payload
+        const message = await MessageService.find(data.messageId)
+        if (!message) {
+          emitter.emit('error', 'Message not found')
+          return
+        }
+        const reaction = await MessageService.getReactionOfUser(
+          message.id,
+          creator.id
+        )
+        if (!reaction) {
+          emitter.emit('error', 'Reaction not found')
+          return
+        }
+        await handleReactionDeletion(reaction, message, creator, emitter)
+      } else if (msg.fields.routingKey == 'event.message.attachment.added') {
+        const { data, creator }: { data: CreateAttachmentDTO; creator: User } =
+          payload
+        if (!ThreadService.isUserInThread(data.thread_id, creator.id)) {
+          emitter.emit('error', 'User is not in the thread')
+          return
+        }
+        await handleAttachmentCreation(data, creator, emitter)
       }
-
       channel.ack(msg)
     } catch (err: unknown) {
       console.error('Error in message dispatcher:', err)

@@ -1,4 +1,4 @@
-import { EntityManager } from 'typeorm'
+import { EntityManager, Equal } from 'typeorm'
 import { AppDataSource } from '../database/data-source'
 import { Domain_Events, Event_Aggregate_Type } from '../Types/Enums'
 import { DomainEvent } from '../entity/DomainEvent'
@@ -80,9 +80,14 @@ class EventService {
   ) {
     try {
       const events = await manager.find(DomainEvent, {
-        where: {
-          aggregateId: messageId,
-        },
+        where: [
+          { aggregateId: messageId },
+          {
+            payload: {
+              id: Equal(messageId),
+            },
+          },
+        ],
       })
       return await manager.remove(events)
     } catch (error) {

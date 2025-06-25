@@ -100,6 +100,14 @@ export interface ClientToServerEvents {
     conversation: ThreadInfoDTO
   }) => void
   add_reaction: (data: CreateReactionDTO) => void
+  reaction_added_acknowledged: (data: {
+    event: EventInfoDTO<Domain_Events.REACTION_ACKNOWLEDGED>
+    reaction: SingleReactionResponseDTO
+  }) => void
+  reaction_removed_acknowledged: (data: {
+    event: EventInfoDTO<Domain_Events.REACTION_ACKNOWLEDGED>
+    reaction: SingleReactionResponseDTO
+  }) => void
   remove_reaction: (data: { messageId: string }) => void
   add_attachments: (data: CreateAttachmentDTO) => void
   remove_attachments: (data: { messageId: string }) => void
@@ -189,6 +197,7 @@ export interface ServerToClientEvents {
   attachment_added: (data: {
     event: EventInfoDTO<Domain_Events.ATTACHMENT_ADDED>
     thread: ThreadInfoDTO
+    message: MessageInfoDTO
     attachments: AttachmentResponseDTO[]
   }) => void
   attachment_removed: (data: {
@@ -196,6 +205,17 @@ export interface ServerToClientEvents {
     thread: ThreadInfoDTO
     attachments: AttachmentResponseDTO[]
   }) => void
+  pending_msg_count_per_thread: (
+    data: {
+      threadId: string
+      lastOffsetAt: Date
+      messageCount: number
+      latestMessage:
+        | MessageInfoDTO
+        | ReactionResponseGeneralDTO
+        | AttachmentResponseDTO
+    }[]
+  ) => void
   join_thread: (data: { conversation: ThreadInfoDTO }) => void
   leave_thread: (data: { conversation: ThreadInfoDTO }) => void
   error: (message: string) => void
@@ -205,5 +225,5 @@ export interface InterServerEvents {
 }
 export interface SocketData {
   userId: string
-  username?: string
+  username: string
 }

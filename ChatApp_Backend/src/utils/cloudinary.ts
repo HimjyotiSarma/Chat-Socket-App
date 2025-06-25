@@ -18,6 +18,9 @@ const uploadToCloudinary = async (filePath: string) => {
       resource_type: 'auto',
     })
     fs.unlinkSync(filePath)
+    if (!response.secure_url) {
+      throw new Error('Failed to upload file to Cloudinary')
+    }
     return response
   } catch (error: Error | any) {
     // Handle the error appropriately

@@ -11,7 +11,7 @@ import { Message } from './Message'
 import { User } from './User'
 
 @Entity()
-@Index('msg_user_idx', ['message.id', 'user.id'], { unique: true })
+@Index('msg_user_idx', ['message', 'user'], { unique: true })
 export class Reaction {
   @PrimaryGeneratedColumn('uuid')
   id!: string

@@ -9,8 +9,9 @@ class SocketService {
     try {
       const websocketSession = await manager.findOne(WebsocketSession, {
         where: {
-          id: socketId,
+          socketId: socketId,
         },
+        relations: ['user'],
       })
       if (!websocketSession) throw new Error('Socket not found')
       return websocketSession
@@ -24,6 +25,7 @@ class SocketService {
     manager: EntityManager = AppDataSource.manager
   ) {
     try {
+      console.log('USER ID: ', userId)
       const user = await UserService.find(userId, manager)
       const connection = new WebsocketSession()
       connection.user = user

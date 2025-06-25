@@ -27,12 +27,14 @@ class ThreadController extends SocketController {
     const { io, socket } = this
     const { userId, username } = socket.data
     if (!userId || !username) {
-      return socket.emit('error', 'Invalid token')
+      socket.emit('error', 'Invalid token')
+      return
     }
     const user = await UserService.find(userId)
     const connectedThreads = await UserService.findThreads(userId)
     if (!connectedThreads) {
       socket.emit('error', 'No threads found for user')
+      return
     }
     if (connectedThreads.length >= 1) {
       for (const thread of connectedThreads) {
@@ -42,7 +44,8 @@ class ThreadController extends SocketController {
     }
     socket.on('create_dm_conversation', async () => {
       if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
 
       const eventTopic = EventToTopic(Domain_Events.DM_CONVERSATION_CREATED)
@@ -54,7 +57,8 @@ class ThreadController extends SocketController {
     })
     socket.on('create_grp_conversation', async (data) => {
       if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       const eventTopic = EventToTopic(Domain_Events.GROUP_CONVERSATION_CREATED)
       publishEvent(
@@ -65,7 +69,8 @@ class ThreadController extends SocketController {
     })
     socket.on('add_thread_participant', async (data) => {
       if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       const eventTopic = EventToTopic(Domain_Events.PARTICIPANT_ADDED)
       publishEvent(
@@ -82,7 +87,8 @@ class ThreadController extends SocketController {
     })
     socket.on('add_multiple_participant', async (data) => {
       if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
 
       const eventTopic = EventToTopic(Domain_Events.MULTIPLE_PARTICIPANT_ADDED)
@@ -101,7 +107,8 @@ class ThreadController extends SocketController {
 
     socket.on('add_thread_participant_acknowledged', async (data) => {
       if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       const eventTopic = EventToTopic(
         Domain_Events.PARTICIPANT_ADDED_ACKNOWLEDGED
@@ -120,7 +127,8 @@ class ThreadController extends SocketController {
 
     socket.on('remove_thread_participant', async (data) => {
       if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       const eventTopic = EventToTopic(Domain_Events.PARTICIPANT_REMOVED)
       publishEvent(
@@ -137,7 +145,8 @@ class ThreadController extends SocketController {
     })
     socket.on('conversation_created_acknowledged', async (data) => {
       if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       const eventTopic = EventToTopic(
         Domain_Events.CONVERSATION_CREATED_ACKNOWLEDGED
@@ -155,7 +164,8 @@ class ThreadController extends SocketController {
     })
     socket.on('participant_added_acknowledged', async (data) => {
       if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       const eventTopic = EventToTopic(
         Domain_Events.PARTICIPANT_ADDED_ACKNOWLEDGED
@@ -173,7 +183,8 @@ class ThreadController extends SocketController {
     })
     socket.on('multiple_participants_added_acknowledged', async (data) => {
       if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       const eventTopic = EventToTopic(
         Domain_Events.MULTIPLE_PARTICIPANT_ADDED_ACKNOWLEDGED
@@ -191,7 +202,8 @@ class ThreadController extends SocketController {
     })
     socket.on('remove_thread_participant', async (data) => {
       if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       const eventTopic = EventToTopic(Domain_Events.PARTICIPANT_REMOVED)
       publishEvent(
@@ -209,7 +221,8 @@ class ThreadController extends SocketController {
 
     socket.on('participant_removed_acknowledged', async (data) => {
       if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       const eventTopic = EventToTopic(
         Domain_Events.PARTICIPANT_REMOVED_ACKNOWLEDGED
@@ -228,14 +241,16 @@ class ThreadController extends SocketController {
 
     socket.on('mark_thread_read', async (data) => {
       if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       await this.markThreadRead(data.thread_id, user)
     })
 
     socket.on('mark_thread_read_acknowledged', async (data) => {
       if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       const eventTopic = EventToTopic(
         Domain_Events.MARK_THREAD_READ_ACKNOWLEDGED
@@ -254,7 +269,8 @@ class ThreadController extends SocketController {
 
     socket.on('update_group_conversation', async (data) => {
       if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       const eventTopic = EventToTopic(Domain_Events.GROUP_CONVERSATION_UPDATED)
       publishEvent(
@@ -271,7 +287,8 @@ class ThreadController extends SocketController {
 
     socket.on('group_conversation_updated_acknowledged', async (data) => {
       if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       const eventTopic = EventToTopic(
         Domain_Events.GROUP_CONVERSATION_UPDATED_ACKNOWLEDGED
@@ -290,7 +307,8 @@ class ThreadController extends SocketController {
 
     socket.on('delete_conversation', async (data) => {
       if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       const eventTopic = EventToTopic(Domain_Events.CONVERSATION_DELETED)
       publishEvent(
@@ -307,7 +325,8 @@ class ThreadController extends SocketController {
 
     socket.on('conversation_deleted_acknowledged', async (data) => {
       if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       const eventTopic = EventToTopic(
         Domain_Events.CONVERSATION_DELETED_ACKNOWLEDGED
@@ -326,14 +345,16 @@ class ThreadController extends SocketController {
 
     socket.on('join_thread_acknowledged', async (data) => {
       if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       socket.join(this.room('thread', data.conversation.id))
     })
 
     socket.on('leave_thread_acknowledged', async (data) => {
       if (!userId || !username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       socket.leave(this.room('thread', data.conversation.id))
     })
@@ -341,7 +362,8 @@ class ThreadController extends SocketController {
     socket.on('open_thread', async (data) => {
       try {
         if (!userId || !username) {
-          return socket.emit('error', 'Invalid token')
+          socket.emit('error', 'Invalid token')
+          return
         }
         const thread = await ThreadService.find(data.thread_id)
         // Fetch all Unacknowledged Message Events
@@ -368,7 +390,8 @@ class ThreadController extends SocketController {
     socket.on('close_thread', async (data) => {
       try {
         if (!userId || !username) {
-          return socket.emit('error', 'Invalid token')
+          socket.emit('error', 'Invalid token')
+          return
         }
         // Mark the Thread as Read
         await this.markThreadRead(data.thread_id, user)
@@ -424,3 +447,4 @@ class ThreadController extends SocketController {
     }
   }
 }
+export default ThreadController

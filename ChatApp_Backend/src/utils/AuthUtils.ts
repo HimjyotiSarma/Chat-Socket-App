@@ -34,6 +34,7 @@ function decode_token(token: string): JwtPayloadType {
   if (!JWT_SECRET) {
     throw new Error('JWT_SECRET is not defined in environment variables')
   }
+  console.log(token)
   if (!token || !token.startsWith('Bearer ')) {
     throw new Error('Invalid token format. Token must start with "Bearer ".')
   }

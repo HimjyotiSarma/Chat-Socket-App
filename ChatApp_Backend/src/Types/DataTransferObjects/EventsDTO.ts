@@ -20,6 +20,7 @@ export type DomainEventPayloadMap = {
   [Domain_Events.BULK_MESSAGE_DELETED_ACKNOWLEDGED]: Message[]
   [Domain_Events.REACTION_ADDED]: Reaction
   [Domain_Events.REACTION_REMOVED]: Reaction
+  [Domain_Events.REACTION_ACKNOWLEDGED]: Reaction
   [Domain_Events.ATTACHMENT_ADDED]: Attachment[]
   [Domain_Events.ATTACHMENT_REMOVED]: Attachment[]
 

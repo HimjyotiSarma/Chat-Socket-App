@@ -1,33 +1,34 @@
 import { Emitter } from '@socket.io/redis-emitter'
 import { Message } from '../../entity/Message'
+import { Reaction } from '../../entity/Reaction'
+import { ServerToClientEvents } from '../../Types/SocketEvents'
 import { User } from '../../entity/User'
 import EventService from '../../services/Event.service'
-import MessageService from '../../services/Message.service'
-import { ServerToClientEvents } from '../../Types/SocketEvents'
 import { Domain_Events, Event_Aggregate_Type } from '../../Types/Enums'
-import DeliveryService from '../../services/Delivery.service'
 import ThreadService from '../../services/Thread.service'
+import DeliveryService from '../../services/Delivery.service'
 import {
   mapEventResponse,
-  mapMessageResponse,
+  mapReactionResponse,
   mapThreadResponse,
 } from '../../utils/ResponseMapper'
 
-const handleMessageDelete = async (
+const handleReactionDeletion = async (
+  reaction: Reaction,
   message: Message,
   creator: User,
   emitter: Emitter<ServerToClientEvents>
 ) => {
   try {
-    // Emit the message deleted event to the creator
     const event = await EventService.create(
       Event_Aggregate_Type.MESSAGE,
-      message.id,
-      Domain_Events.MESSAGE_DELETED,
-      message
+      reaction.id,
+      Domain_Events.REACTION_REMOVED,
+      reaction
     )
     const participants = await ThreadService.findUsers(message.conversation.id)
     if (!participants) throw new Error('No participants found in the thread')
+
     const deliveries = await DeliveryService.initDelivery(
       event.id,
       message.conversation,
@@ -43,25 +44,15 @@ const handleMessageDelete = async (
     )
 
     const rooms = deliveries.map((delivery) => `user-${delivery.user.id}`)
-
-    emitter.to(rooms).emit('message_deleted', {
-      event: mapEventResponse<Domain_Events.MESSAGE_DELETED>(event),
+    emitter.to(rooms).emit('reaction_removed', {
+      event: mapEventResponse<Domain_Events.REACTION_REMOVED>(event),
       thread: mapThreadResponse(message.conversation),
-      message: mapMessageResponse(message),
+      reaction: mapReactionResponse(reaction),
     })
-    // // Delete All Reactions related to the message
-    // await MessageService.deleteAllMessageReactions(message.id)
-    // // Delete All Attachments related to the message
-    // await MessageService.deleteAllMessageAttachments(message.id)
-    // Delete the message
-    await MessageService.deleteMessage(
-      message.conversation.id,
-      message.id,
-      creator
-    )
   } catch (error) {
     console.error(error)
+    throw new Error('Error deleting Message Reaction')
   }
 }
 
-export default handleMessageDelete
+export default handleReactionDeletion

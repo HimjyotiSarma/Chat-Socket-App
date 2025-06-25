@@ -10,6 +10,12 @@ import { Server } from 'socket.io'
 import { TypedIOServer } from './Types/SocketTypes'
 import { attachUserData } from './middlewares/socket/auth.socket.middleware'
 
+// import controllers
+import SocketController from './controllers/utils/Socket.controller'
+import MessageController from './controllers/Message.controller'
+import ThreadController from './controllers/Thread.controller'
+import WebSocketController from './controllers/Websocket.controller'
+
 console.log('COOKIE SECRET: ', process.env.COOKIE_SECRET)
 
 const app = express()
@@ -59,20 +65,39 @@ app.use((req, res, next) => {
 // Add Middlewares
 
 // Add Socket Connection
+const SOCKET_CONTROLLERS: Array<typeof SocketController> = [
+  MessageController,
+  ThreadController,
+]
 
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
   // Add web session connection with db sync here
-  console.log('a user connected')
+  const websocket = new WebSocketController(
+    socket.id,
+    socket.data.userId,
+    socket.data.username
+  )
+  await websocket.connect()
+
+  socket.join(`user-${socket.data.userId}`)
+
+  for (const controller of SOCKET_CONTROLLERS) {
+    const instance = new controller(io, socket)
+    await instance.register()
+  }
   socket.on('disconnect', () => {
-    console.log('user disconnected')
+    websocket.disconnect()
   })
 })
 // Add Routes
 import authRouter from './routes/auth.route'
 app.use('/api/v1/auth', authRouter)
+import attachmentRouter from './routes/attachments.route'
+app.use('/api/v1/attachments', attachmentRouter)
 
 // Handle Errors in Routes
 import errorHandler from './utils/errorHandler'
+
 app.use(errorHandler)
 
 export { app as default, httpServer as server }

@@ -1,4 +1,6 @@
 import { DomainEvent } from '../entity/DomainEvent'
+import { Message } from '../entity/Message'
+import { Reaction } from '../entity/Reaction'
 import publishEvent from '../publisher/publisher'
 import DeliveryService from '../services/Delivery.service'
 import EventService from '../services/Event.service'
@@ -8,7 +10,12 @@ import UserService from '../services/User.service'
 import { EventInfoDTO } from '../Types/DataTransferObjects/EventsDTO'
 import { MessageInfoDTO } from '../Types/DataTransferObjects/MessageDTO'
 import { Domain_Events, Event_Aggregate_Type } from '../Types/Enums'
-import { mapEventResponse, mapMessageResponse } from '../utils/ResponseMapper'
+import {
+  mapAttachmentResponse,
+  mapEventResponse,
+  mapMessageResponse,
+  mapReactionResponse,
+} from '../utils/ResponseMapper'
 import {
   EventToTopic,
   EventTypeToEventName,
@@ -20,7 +27,8 @@ class MessageController extends SocketController {
     const { io, socket } = this
     const { userId, username } = socket.data
     if (!userId || !username) {
-      return socket.emit('error', 'Invalid token')
+      socket.emit('error', 'Invalid token')
+      return
     }
     // TODO :-> Make sure that the User is coming as Object and Not the UserID
     const user = await UserService.find(userId)
@@ -28,7 +36,8 @@ class MessageController extends SocketController {
 
     socket.on('create_message', async (data) => {
       if (!socket.data.userId || !socket.data.username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       const eventTopic = EventToTopic(Domain_Events.MESSAGE_CREATED)
       publishEvent(
@@ -40,7 +49,8 @@ class MessageController extends SocketController {
 
     socket.on('update_message', async (data) => {
       if (!socket.data.userId || !socket.data.username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       const eventTopic = EventToTopic(Domain_Events.MESSAGE_UPDATED)
       publishEvent(
@@ -52,7 +62,8 @@ class MessageController extends SocketController {
 
     socket.on('delete_message', async (data) => {
       if (!socket.data.userId || !socket.data.username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       const eventTopic = EventToTopic(Domain_Events.MESSAGE_DELETED)
       publishEvent(
@@ -64,7 +75,8 @@ class MessageController extends SocketController {
 
     socket.on('bulk_message_delete', async (data) => {
       if (!socket.data.userId || !socket.data.username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       const eventTopic = EventToTopic(Domain_Events.BULK_MESSAGE_DELETED)
       publishEvent(
@@ -74,15 +86,83 @@ class MessageController extends SocketController {
       )
     })
 
+    socket.on('add_reaction', async (data) => {
+      if (!socket.data.userId || !socket.data.username) {
+        socket.emit('error', 'Invalid token')
+        return
+      }
+      const eventTopic = EventToTopic(Domain_Events.REACTION_ADDED)
+      publishEvent(
+        'event_hub',
+        eventTopic,
+        Buffer.from(JSON.stringify({ data: data, creator: user }))
+      )
+    })
+
+    socket.on('remove_reaction', async (data) => {
+      if (!socket.data.userId || !socket.data.username) {
+        socket.emit('error', 'Invalid token')
+        return
+      }
+      const eventTopic = EventToTopic(Domain_Events.REACTION_REMOVED)
+      publishEvent(
+        'event_hub',
+        eventTopic,
+        Buffer.from(JSON.stringify({ data: data, creator: user }))
+      )
+    })
+
+    socket.on('add_attachments', async (data) => {
+      if (!socket.data.userId || !socket.data.username) {
+        socket.emit('error', 'Invalid token')
+        return
+      }
+      const eventTopic = EventToTopic(Domain_Events.ATTACHMENT_ADDED)
+      publishEvent(
+        'event_hub',
+        eventTopic,
+        Buffer.from(JSON.stringify({ data: data, creator: user }))
+      )
+    })
+    // Add the Individual Attachment Remove
+    // socket.on('remove_attachments', async (data) => {
+    //   // FOR NOW IMPLEMENT DELETING THE WHOLE MESSAGE(that will result in deleting all the attachments)
+    //   // TODO :-> IMPLEMENT DELETING INDIVIDUAL ATTACHMENTS(along will updating the Attachments Event and updating the payload of Event and then deleting the individual attachments)
+    //   if (!socket.data.userId || !socket.data.username) {
+    //     return socket.emit('error', 'Invalid token')
+    //   }
+    //   const eventTopic = EventToTopic(Domain_Events.ATTACHMENT_REMOVED)
+    //   publishEvent(
+    //     'event_hub',
+    //     eventTopic,
+    //     Buffer.from(JSON.stringify({ data: data, creator: user }))
+    //   )
+    // })
+
+    socket.on('remove_reaction', async (data) => {
+      if (!socket.data.userId || !socket.data.username) {
+        socket.emit('error', 'Invalid token')
+        return
+      }
+      const eventTopic = EventToTopic(Domain_Events.REACTION_REMOVED)
+      publishEvent(
+        'event_hub',
+        eventTopic,
+        Buffer.from(JSON.stringify({ data: data, creator: user }))
+      )
+    })
+
     socket.on('create_message_acknowledged', async (data) => {
       if (!socket.data.userId || !socket.data.username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
-      if (socket.data.userId !== data.message.sender.id) {
-        return socket.emit('error', 'Invalid token')
-      }
+      // if (socket.data.userId !== data.message.sender.id) {
+      //   return socket.emit('error', 'Invalid token')
+      // }
       if (data.event.aggregateType !== Event_Aggregate_Type.MESSAGE) {
-        return socket.emit('error', 'Invalid event type')
+        socket.emit('error', 'Invalid event type')
+        return
       }
       const eventTopic = EventToTopic(Domain_Events.MESSAGE_ACKNOWLEDGED)
       await publishEvent(
@@ -96,13 +176,15 @@ class MessageController extends SocketController {
 
     socket.on('updated_message_acknowledged', async (data) => {
       if (!socket.data.userId || !socket.data.username) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
-      if (socket.data.userId !== data.message.sender.id) {
-        return socket.emit('error', 'Invalid token')
-      }
+      // if (socket.data.userId !== data.message.sender.id) {
+      //   return socket.emit('error', 'Invalid token')
+      // }
       if (data.event.aggregateType !== Event_Aggregate_Type.MESSAGE) {
-        return socket.emit('error', 'Invalid event type')
+        socket.emit('error', 'Invalid event type')
+        return
       }
       const eventTopic = EventToTopic(Domain_Events.MESSAGE_ACKNOWLEDGED)
       await publishEvent(
@@ -116,13 +198,12 @@ class MessageController extends SocketController {
 
     socket.on('deleted_message_acknowledged', async (data) => {
       if (!socket.data.userId || !socket.data.username) {
-        return socket.emit('error', 'Invalid token')
-      }
-      if (socket.data.userId !== data.message.sender.id) {
-        return socket.emit('error', 'Invalid token')
+        socket.emit('error', 'Invalid token')
+        return
       }
       if (data.event.aggregateType !== Event_Aggregate_Type.MESSAGE) {
-        return socket.emit('error', 'Invalid event type')
+        socket.emit('error', 'Invalid event type')
+        return
       }
       const eventTopic = EventToTopic(Domain_Events.MESSAGE_ACKNOWLEDGED)
       await publishEvent(
@@ -136,18 +217,53 @@ class MessageController extends SocketController {
 
     socket.on('bulk_message_deleted_acknowledged', async (data) => {
       if (!socket.data.userId || !socket.data.username) {
-        return socket.emit('error', 'Invalid token')
-      }
-      for (const message of data.messages) {
-        if (socket.data.userId !== message.sender.id) {
-          return socket.emit('error', 'Invalid token')
-        }
+        socket.emit('error', 'Invalid token')
+        return
       }
 
       if (data.event.aggregateType !== Event_Aggregate_Type.MESSAGE) {
-        return socket.emit('error', 'Invalid event type')
+        socket.emit('error', 'Invalid event type')
+        return
       }
       const eventTopic = EventToTopic(Domain_Events.MESSAGE_ACKNOWLEDGED)
+      await publishEvent(
+        'event_hub',
+        eventTopic,
+        Buffer.from(
+          JSON.stringify({ event: data.event, userId: socket.data.userId })
+        )
+      )
+    })
+
+    socket.on('reaction_added_acknowledged', async (data) => {
+      if (!socket.data.userId || !socket.data.username) {
+        socket.emit('error', 'Invalid token')
+        return
+      }
+      if (data.event.aggregateType !== Event_Aggregate_Type.MESSAGE) {
+        socket.emit('error', 'Invalid event type')
+        return
+      }
+      const eventTopic = EventToTopic(Domain_Events.REACTION_ACKNOWLEDGED)
+      await publishEvent(
+        'event_hub',
+        eventTopic,
+        Buffer.from(
+          JSON.stringify({ event: data.event, userId: socket.data.userId })
+        )
+      )
+    })
+
+    socket.on('reaction_removed_acknowledged', async (data) => {
+      if (!socket.data.userId || !socket.data.username) {
+        socket.emit('error', 'Invalid token')
+        return
+      }
+      if (data.event.aggregateType !== Event_Aggregate_Type.MESSAGE) {
+        socket.emit('error', 'Invalid event type')
+        return
+      }
+      const eventTopic = EventToTopic(Domain_Events.REACTION_ACKNOWLEDGED)
       await publishEvent(
         'event_hub',
         eventTopic,
@@ -175,16 +291,22 @@ class MessageController extends SocketController {
           const latestMessage = await MessageService.findLatestMessage(
             thread.id
           )
+          const latestMessageDTO =
+            latestMessage instanceof Message
+              ? mapMessageResponse(latestMessage)
+              : latestMessage instanceof Reaction
+              ? mapReactionResponse(latestMessage)
+              : mapAttachmentResponse(latestMessage)
           return {
             threadId: thread.id,
             lastOffsetAt,
             messageCount,
-            latestMessage,
+            latestMessage: latestMessageDTO,
           }
         })
       )
 
-      return msgCountPerThreadAndOffset
+      socket.emit('pending_msg_count_per_thread', msgCountPerThreadAndOffset)
     })
   }
   // async retryPendingDeliveriesForUser(

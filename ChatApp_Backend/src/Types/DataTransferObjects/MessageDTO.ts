@@ -24,7 +24,8 @@ export interface AttachmentInput {
 export interface AttachmentResponseDTO {
   id: string
   message_id: string
-  file_type: AttachmentTypes
+  file_format: AttachmentTypes
+  file_type: string
   url?: string
   thumbnail_url?: string | null
   created_at: Date
