@@ -1,8 +1,14 @@
 import * as React from 'react'
-import { Outlet, createRootRoute } from '@tanstack/react-router'
+import { Outlet, createRootRouteWithContext } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import type { AuthContextType } from '../auth'
+import type { QueryClient } from '@tanstack/react-query'
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<{
+  auth: AuthContextType
+  queryClient: QueryClient
+}>()({
   component: RootComponent,
 })
 
@@ -13,7 +19,8 @@ function RootComponent() {
         Hello "__root"!
       </div>
       <Outlet />
-      <TanStackRouterDevtools />
+      <ReactQueryDevtools buttonPosition="top-right" />
+      <TanStackRouterDevtools position="bottom-right" />
     </React.Fragment>
   )
 }
